@@ -1,0 +1,43 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        args: [--strict, --ignore-missing-imports]
+        additional_dependencies: ['pydantic', 'tomli']
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.6.6
+    hooks:
+      - id: uv-export
+        args:
+          - '--frozen'
+          - '--all-extras'
+          - '--no-dev'
+          - '--no-hashes'
+          - '-o'
+          - 'requirements.in'
+      - id: pip-compile
+        args:
+          - '--python-version'
+          - '3.10'
+          - '--no-annotate'
+          - '--emit-index-url'
+          - '--extra-index-url'
+          - 'https://www.paddlepaddle.org.cn/packages/stable/cu123'
+          - '--extra-index-url'
+          - 'https://download.pytorch.org/whl/cu124'
+          - '--extra-index-url'
+          - 'https://wheels.myhloli.com'
+          - '--output-file'
+          - 'requirements.txt'
+          - 'requirements.in'
