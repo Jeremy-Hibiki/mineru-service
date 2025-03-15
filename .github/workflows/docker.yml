@@ -47,7 +47,7 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ secrets.ALIYUN_REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ secrets.ALIYUN_REGISTRY }}
           flavor: |
             latest=false
             prefix=
@@ -107,7 +107,7 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ secrets.ALIYUN_REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ secrets.ALIYUN_REGISTRY }}
           flavor: |
             latest=false
             prefix=
