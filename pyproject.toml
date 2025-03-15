@@ -1,0 +1,14 @@
+[project]
+name = "pdf-ai-service"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+pdf-ai-service = "pdf_ai_service:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
