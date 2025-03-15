@@ -1,3 +1,13 @@
+*.pdf
+*.md
+!README.md
+*.doc
+*.docx
+*.ppt
+*.pptx
+*.txt
+*.json
+
 # Python-generated files
 __pycache__/
 *.py[oc]
