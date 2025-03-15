@@ -56,6 +56,8 @@ jobs:
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           context: .
           file: Dockerfile
           push: true
@@ -114,6 +116,8 @@ jobs:
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           context: .
           file: Dockerfile.full
           push: true
