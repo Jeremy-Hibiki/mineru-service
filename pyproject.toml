@@ -3,8 +3,8 @@ name = "pdf-ai-service"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.115.11", "litserve>=0.2.7", "pydantic>=2.10.6"]
 
 [project.scripts]
 pdf-ai-service = "pdf_ai_service:main"
@@ -12,3 +12,90 @@ pdf-ai-service = "pdf_ai_service:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["mypy==1.15.0", "ruff==0.11.0"]
+
+[tool.uv]
+managed = true
+package = true
+prerelease = "if-necessary-or-explicit"
+index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+name = "tuna"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+default = true
+
+[tool.ruff]
+line-length = 119
+indent-width = 4
+target-version = "py310"
+extend-exclude = ["*.pyi"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # flake8-bugbear
+    "B",
+    # flake8-future-annotations
+    "FA",
+    # flake8-simplify
+    "SIM",
+    # flake8-logging
+    "LOG",
+    # flake8-print
+    "T20",
+    # isort
+    "I",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # fastapilitserve
+    "FAST",
+]
+ignore = [
+    "COM812",
+    "COM819",
+    "D100",
+    "D203",
+    "D213",
+    "D300",
+    "E111",
+    "E114",
+    "E117",
+    "E501",
+    "ISC001",
+    "ISC002",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "W191",
+    "SIM300",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/test/**.py" = ["LOG", "T20"]
+"**/test_*.py" = ["LOG", "T20"]
+
+[tool.ruff.lint.isort]
+extra-standard-library = ["typing_extensions"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+disable_error_code = "import-untyped"
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
