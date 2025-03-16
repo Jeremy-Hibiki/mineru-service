@@ -22,14 +22,16 @@ WORKDIR /app
 RUN python3 -m venv /app/.venv
 
 ENV UV_LINK_MODE=copy
-COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
-  uv pip install -r requirements.txt \
-  --index-strategy unsafe-best-match \
-  --no-deps
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project \
+  && uv sync --frozen --no-install-project --extra paddlepaddle
 
 COPY . .
-RUN uv pip install .[mineru,paddlepaddle]
+RUN --mount=type=cache,target=/root/.cache/uv \
+  uv sync --frozen --extra paddlepaddle
+
 
 FROM base AS runtime
 

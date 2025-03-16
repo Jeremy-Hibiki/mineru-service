@@ -23,25 +23,25 @@ WORKDIR /app
 RUN python3 -m venv /app/.venv
 
 ENV UV_LINK_MODE=copy
-COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
-  uv pip install -r requirements.txt \
-  --index-strategy unsafe-best-match \
-  --no-deps
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project \
+  && uv sync --frozen --no-install-project --extra paddlepaddle
 
 # Download models
 COPY ./scripts/download_models.py .
 RUN . /app/.venv/bin/activate
 
-RUN  --mount=type=cache,target=/root/.cache/huggingface \
-  uv pip install huggingface_hub \
+RUN uv pip install huggingface_hub \
   && . /app/.venv/bin/activate \
   && mkdir -p /opt/models \
   && python3 ./download_models.py \
   && find /opt/models -type d -name ".cache" -exec rm -rf {} +
 
 COPY . .
-RUN uv pip install .[mineru,paddlepaddle]
+RUN --mount=type=cache,target=/root/.cache/uv \
+  uv sync --frozen --extra paddlepaddle
 
 FROM base AS runtime
 
