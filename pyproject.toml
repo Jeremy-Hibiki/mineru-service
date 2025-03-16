@@ -1,6 +1,6 @@
 [project]
 name = "mineru-service"
-version = "0.1.0"
+version = "1.2.2.post1"
 requires-python = ">=3.10"
 dependencies = [
     "apscheduler>=3.11.0",
