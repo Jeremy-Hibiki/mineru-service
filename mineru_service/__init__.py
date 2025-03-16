@@ -4,8 +4,11 @@ import gc
 import logging
 import os
 import shutil
+import tarfile
 import tempfile
 import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 from typing_extensions import override
@@ -14,19 +17,54 @@ import filetype
 import fitz
 import litserve as ls
 import torch
+from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from magic_pdf.tools.cli import convert_file_to_pdf, do_parse
 from starlette.datastructures import FormData, UploadFile
 
 logger = logging.getLogger("uvicorn")
 
 load_dotenv()
 
+output_dir_base = os.getenv("MINERU_SERVICE_OUTPUT_DIR", "/tmp")
+
+MINERU_SERVICE_OUTPUT_RETENTION_HOURS = int(os.getenv("MINERU_SERVICE_OUTPUT_RETENTION_HOURS", "6"))
+MINERU_SERVICE_CLEANUP_INTERVAL_MINUTES = int(os.getenv("MINERU_SERVICE_CLEANUP_INTERVAL_MINUTES", "60"))
+
+
+def cleanup_output_directory():
+    output_dir = Path(output_dir_base) / "mineru"
+
+    if not output_dir.exists():
+        return
+
+    logger.info(f"Start cleaning up output directory: {output_dir}")
+    now = datetime.now()
+    retention_time = now - timedelta(hours=MINERU_SERVICE_OUTPUT_RETENTION_HOURS)
+
+    cnt = 0
+    for item in output_dir.iterdir():
+        try:
+            mtime = datetime.fromtimestamp(item.stat().st_mtime)
+
+            if mtime < retention_time:
+                if item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
+                else:
+                    item.unlink()
+                cnt += 1
+        except Exception:
+            pass
+
+    logger.info(f"{cnt} output files has been cleaned up")
+
 
 class API(ls.LitAPI):
     def __init__(self, output_dir="/tmp"):
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir) / "mineru"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @override
     def setup(self, device):
@@ -36,10 +74,6 @@ class API(ls.LitAPI):
                 raise RuntimeError("Remove any CUDA actions before setting 'CUDA_VISIBLE_DEVICES'.")
 
         from magic_pdf.model.doc_analyze_by_custom_model import ModelSingleton
-        from magic_pdf.tools.cli import convert_file_to_pdf, do_parse
-
-        self.do_parse = do_parse
-        self.convert_file_to_pdf = convert_file_to_pdf
 
         model_manager = ModelSingleton()
         model_manager.get_model(True, False)
@@ -66,7 +100,10 @@ class API(ls.LitAPI):
         try:
             pdf_name = str(uuid.uuid4())
             output_dir = self.output_dir.joinpath(pdf_name)
-            self.do_parse(self.output_dir, pdf_name, inputs[0], [], **inputs[1])
+            do_parse(self.output_dir, pdf_name, inputs[0], [], **inputs[1])
+            tar_file = output_dir.with_suffix(".tar")
+            with tarfile.open(tar_file, "w") as tar:
+                tar.add(output_dir, arcname=pdf_name)
             return output_dir
         except Exception as e:
             shutil.rmtree(output_dir, ignore_errors=True)
@@ -77,7 +114,13 @@ class API(ls.LitAPI):
 
     @override
     def encode_response(self, response):
-        return {"output_dir": response}
+        return {
+            "output_dir": response,
+            "output_tarball_url": os.path.join(
+                "/static",
+                Path(response).with_suffix(".tar").relative_to(self.output_dir),
+            ),
+        }
 
     def clean_memory(self):
         if torch.cuda.is_available():
@@ -85,7 +128,8 @@ class API(ls.LitAPI):
             torch.cuda.ipc_collect()
         gc.collect()
 
-    def cvt2pdf(self, file_base64):
+    @staticmethod
+    def cvt2pdf(file_base64):
         try:
             temp_dir = Path(tempfile.mkdtemp())
             temp_file = temp_dir.joinpath("tmpfile")
@@ -100,7 +144,7 @@ class API(ls.LitAPI):
                         return f.convert_to_pdf()
                 else:
                     temp_file.write_bytes(file_bytes)
-                    self.convert_file_to_pdf(temp_file, temp_dir)
+                    convert_file_to_pdf(temp_file, temp_dir)
                     return temp_file.with_suffix(".pdf").read_bytes()
             else:
                 raise Exception("Unsupported file format")
@@ -111,10 +155,9 @@ class API(ls.LitAPI):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-api = API(output_dir="/tmp")
-
-
 def create_server():
+    api = API(output_dir=output_dir_base)
+
     server = ls.LitServer(
         api,
         accelerator="cuda",
@@ -124,7 +167,30 @@ def create_server():
         track_requests=True,
     )
 
-    server.app.mount("/static", StaticFiles(directory="/tmp", html=True))
+    server.app.mount("/static", StaticFiles(directory=os.path.join(output_dir_base, "mineru"), html=True))
+
+    original_lifespan = server.app.router.lifespan_context
+
+    @asynccontextmanager
+    async def custom_lifespan(app: FastAPI):
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            cleanup_output_directory,
+            "interval",
+            minutes=MINERU_SERVICE_CLEANUP_INTERVAL_MINUTES,
+        )
+
+        logger.info("Start scheduler")
+
+        scheduler.start()
+        async with original_lifespan(app):
+            yield
+
+        logger.info("Shutdown scheduler")
+        scheduler.shutdown()
+
+    server.app.router.lifespan_context = custom_lifespan
+
     return server
 
 

@@ -15,6 +15,7 @@ albumentations==1.4.24
 annotated-types==0.7.0
 antlr4-python3-runtime==4.9.3
 anyio==4.8.0
+apscheduler==3.11.0
 astor==0.8.1
 async-timeout==5.0.1
 attrdict==2.0.1
@@ -194,6 +195,7 @@ transformers==4.42.4
 triton==3.0.0
 typing-extensions==4.12.2
 tzdata==2025.1
+tzlocal==5.3.1
 ultralytics==8.3.90
 ultralytics-thop==2.0.14
 unimernet==0.2.3
